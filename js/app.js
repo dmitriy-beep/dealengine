@@ -626,6 +626,50 @@ window.deleteBuyer = async (id) => {
     navigate('/buyers');
 };
 
+window.uploadScreenshots = async (buyerId, input) => {
+    const files = Array.from(input.files);
+    if (!files.length) return;
+    const statusEl = document.getElementById('upload-status');
+    statusEl.textContent = `Uploading ${files.length} file(s)…`;
+
+    // Get current screenshots
+    const { data: buyer } = await db.from('buyers').select('screenshots').eq('id', buyerId).single();
+    let existing = (buyer?.screenshots || '').split(',').filter(Boolean);
+
+    for (const file of files) {
+        const ext = file.name.split('.').pop().toLowerCase();
+        const path = `buyer-${buyerId}/${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
+        const { error } = await db.storage.from('buyer-screenshots').upload(path, file, { upsert: false });
+        if (error) { statusEl.textContent = `Error: ${error.message}`; return; }
+        const { data: urlData } = db.storage.from('buyer-screenshots').getPublicUrl(path);
+        existing.push(urlData.publicUrl);
+    }
+
+    await db.from('buyers').update({ screenshots: existing.join(',') }).eq('id', buyerId);
+    invalidateCache('buyers');
+    statusEl.textContent = '';
+    flash(`${files.length} screenshot(s) uploaded`);
+    navigate(`/buyers/${buyerId}`, false);
+};
+
+window.deleteScreenshot = async (buyerId, index) => {
+    if (!confirm('Remove this screenshot?')) return;
+    const { data: buyer } = await db.from('buyers').select('screenshots').eq('id', buyerId).single();
+    let urls = (buyer?.screenshots || '').split(',').filter(Boolean);
+    const removed = urls.splice(index, 1)[0];
+
+    // Try to delete from storage
+    if (removed) {
+        const pathMatch = removed.match(/buyer-screenshots\/(.+)$/);
+        if (pathMatch) await db.storage.from('buyer-screenshots').remove([pathMatch[1]]);
+    }
+
+    await db.from('buyers').update({ screenshots: urls.join(',') || null }).eq('id', buyerId);
+    invalidateCache('buyers');
+    flash('Screenshot removed');
+    navigate(`/buyers/${buyerId}`, false);
+};
+
 // ── Buyer Detail ────────────────────────────────────────────────────────────
 async function renderBuyerDetail(id) {
     app.innerHTML = '<div class="loading">Loading…</div>';
@@ -665,6 +709,26 @@ async function renderBuyerDetail(id) {
       ${(buyer.dnc_phones) ? `<div class="field"><div class="label">DNC Phones</div><div class="value" style="color:var(--red)">${buyer.dnc_phones.split(',').join(', ')}</div></div>` : ''}
     </div>
     ${buyer.notes ? `<div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);"><div class="label text-sm">NOTES</div><div>${buyer.notes}</div></div>` : ''}
+    </div>
+
+    <div class="card" style="margin-top:0;">
+      <h2>Portfolio Screenshots</h2>
+      <div id="screenshot-gallery" style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:12px;">
+        ${(buyer.screenshots||'').split(',').filter(Boolean).map((url, i) => `
+          <div class="screenshot-thumb" style="position:relative;">
+            <a href="${url}" target="_blank"><img src="${url}" style="max-width:280px;max-height:200px;border-radius:var(--radius);border:1px solid var(--border);cursor:pointer;"></a>
+            <button class="btn btn-sm btn-danger" onclick="deleteScreenshot(${buyer.id}, ${i})" style="position:absolute;top:4px;right:4px;padding:2px 6px;font-size:10px;">✕</button>
+          </div>
+        `).join('')}
+        ${!(buyer.screenshots||'').trim() ? '<span class="text-muted text-sm">No screenshots yet — upload a PropStream portfolio screenshot below.</span>' : ''}
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <label class="btn btn-sm" style="cursor:pointer;background:rgba(79,140,255,.15);border-color:var(--accent);color:var(--accent);">
+          📷 Upload Screenshot
+          <input type="file" accept="image/*" multiple style="display:none;" onchange="uploadScreenshots(${buyer.id}, this)">
+        </label>
+        <span class="text-muted text-sm" id="upload-status"></span>
+      </div>
     </div>
 
     <div class="section-title">Matching Properties (${matches.length})</div>
