@@ -191,7 +191,7 @@ async function renderBuyersList(params) {
       ${filtered.map(b => `<tr data-row data-sortName="${(b.name||'').replace(/"/g,'&quot;')}" data-sortPortfolio="${parseInt(b.portfolio_tier)||0}" data-sortStatus="${b.status||''}" data-sortStrategy="${b.strategy||''}" data-sortPrice="${b.max_price||0}" data-sortCondition="${b.condition_tolerance||''}" data-sortFunding="${b.funding_method||''}" data-sortPOF="${b.proof_of_funds_verified?'1':'0'}" data-sortDeals="${b.deals_last_12_months||0}" data-sortFollowup="${b.next_followup||''}" ${batches.length ? `data-sortImport="${b.import_batch||''}"` : ''}>
         <td><a href="/buyers/${b.id}"><strong>${b.name}</strong></a>${b.entity_name ? `<br><span class="text-muted text-sm">${b.entity_name}</span>` : ''}</td>
         <td>${b.portfolio_tier ? badge(b.portfolio_tier, tierColor(b.portfolio_tier)) : ''}</td>
-        <td>${badge(b.status, buyerStatusColor(b.status))}</td>
+        <td>${badge(b.status, buyerStatusColor(b.status))}${b.status === 'new' ? `<span style="margin-left:4px;white-space:nowrap;"><button class="btn btn-sm" onclick="quickSetStatus(${b.id},'new_high_priority')" style="padding:2px 6px;background:rgba(52,211,153,.15);border-color:var(--green);color:var(--green);font-size:11px;" title="High priority">✓</button><button class="btn btn-sm" onclick="quickSetStatus(${b.id},'new_probably_not')" style="padding:2px 6px;background:rgba(248,113,113,.15);border-color:var(--red);color:var(--red);font-size:11px;margin-left:2px;" title="Probably not investor">✗</button></span>` : ''}</td>
         <td>${(b.strategy || '').replace(/_/g,' ')}</td>
         <td class="money">${fmt(b.min_price)} – ${fmt(b.max_price)}</td>
         <td class="text-sm">${b.zip_codes || ''}</td>
@@ -227,6 +227,18 @@ window.filterBuyerStatus = (status) => {
     if (status) params.set('status', status);
     else params.delete('status');
     navigate('/buyers' + (params.toString() ? '?' + params.toString() : ''));
+};
+
+window.quickSetStatus = async (id, newStatus) => {
+    const { error } = await db.from('buyers').update({ status: newStatus }).eq('id', id);
+    if (error) { flash('Error updating status: ' + error.message, 'error'); return; }
+    // Update cache in-place for instant re-render
+    if (_cache.buyers) {
+        const b = _cache.buyers.find(b => b.id === id);
+        if (b) b.status = newStatus;
+    }
+    flash(`Status → ${newStatus.replace(/_/g, ' ')}`);
+    navigate(location.pathname + location.search, false);
 };
 
 window.exportBuyers = async () => {
