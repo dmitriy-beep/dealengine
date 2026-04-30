@@ -147,7 +147,7 @@ async function renderBuyersList(params) {
     const batches = [...new Set((buyers || []).map(b => b.import_batch).filter(Boolean))].sort();
 
     // Sort by status priority
-    const so = { verified_active: 0, engaged: 1, criteria_collected: 2, contacted: 3, new: 4, not_investor: 5, inactive: 6 };
+    const so = { verified_active: 0, engaged: 1, criteria_collected: 2, contacted: 3, new_high_priority: 4, new: 5, new_probably_not: 6, not_investor: 7, inactive: 8 };
     filtered.sort((a, b) => (so[a.status] || 5) - (so[b.status] || 5));
 
     app.innerHTML = `
@@ -163,7 +163,7 @@ async function renderBuyersList(params) {
     </div>
     <div class="status-filters">
       ${(() => {
-        const allStatuses = ['new','contacted','criteria_collected','engaged','verified_active','not_investor','inactive'];
+        const allStatuses = ['new','new_high_priority','new_probably_not','contacted','criteria_collected','engaged','verified_active','not_investor','inactive'];
         const statusCounts = {};
         allStatuses.forEach(s => { statusCounts[s] = 0; });
         (buyers || []).forEach(b => { if (statusCounts[b.status] !== undefined) statusCounts[b.status]++; });
@@ -374,7 +374,7 @@ async function renderCallList(params) {
 
     // Callable buyers base set (before status filter)
     const callable = (buyers || []).filter(b => {
-        if (['inactive', 'not_investor'].includes(b.status)) return false;
+        if (['inactive', 'not_investor', 'new_probably_not'].includes(b.status)) return false;
         if (!b.phone) return false;
         return true;
     });
@@ -424,7 +424,7 @@ async function renderCallList(params) {
     }
 
     // Status counts from callable buyers (not filtered by status)
-    const callableStatuses = ['new','contacted','criteria_collected','engaged','verified_active'];
+    const callableStatuses = ['new','new_high_priority','contacted','criteria_collected','engaged','verified_active'];
     const statusCounts = {};
     callableStatuses.forEach(s => { statusCounts[s] = 0; });
     callable.forEach(b => { if (statusCounts[b.status] !== undefined) statusCounts[b.status]++; });
@@ -551,7 +551,7 @@ async function renderBuyerForm(id) {
         <div class="form-group"><label>Funding Method</label><select name="funding_method">${['cash','hard_money','conventional','private_money'].map(s=>`<option value="${s}" ${sel('funding_method',s)}>${s.replace(/_/g,' ')}</option>`).join('')}</select></div>
         <div class="form-group"><label>Deals (12mo)</label><input type="number" name="deals_last_12_months" value="${v('deals_last_12_months') || 0}"></div>
         <div class="form-group"><label>Portfolio Tier</label><select name="portfolio_tier"><option value="">— Unknown —</option>${['1-3','4-5','6-10','11-19','20-49','50+'].map(s=>`<option value="${s}" ${v('portfolio_tier')===s?'selected':''}>${s} properties</option>`).join('')}</select></div>
-        <div class="form-group"><label>Status</label><select name="status">${['new','contacted','criteria_collected','engaged','verified_active','not_investor','inactive'].map(s=>`<option value="${s}" ${sel('status',s)}>${s.replace(/_/g,' ')}</option>`).join('')}</select></div>
+        <div class="form-group"><label>Status</label><select name="status">${['new','new_high_priority','new_probably_not','contacted','criteria_collected','engaged','verified_active','not_investor','inactive'].map(s=>`<option value="${s}" ${sel('status',s)}>${s.replace(/_/g,' ')}</option>`).join('')}</select></div>
         <div class="form-group"><label>Next Follow-up</label><input type="date" name="next_followup" value="${v('next_followup')}"></div>
         <div class="form-group"><label>Last Contacted</label><input type="date" name="last_contacted" value="${v('last_contacted')}"></div>
         <div class="form-group"><label style="display:inline-flex;align-items:center;gap:6px;text-transform:none;font-size:13px;"><input type="checkbox" name="proof_of_funds_verified" ${chk('proof_of_funds_verified')}> Proof of Funds Verified</label></div>
@@ -1586,7 +1586,7 @@ async function renderActivityForm(params) {
         <div class="form-group"><label>Update Buyer Status</label>
           <select name="new_status" id="act_new_status">
             <option value="">— No change —</option>
-            ${['new','contacted','criteria_collected','engaged','verified_active','not_investor','inactive'].map(s=>`<option value="${s}">${s.replace(/_/g,' ')}</option>`).join('')}
+            ${['new','new_high_priority','new_probably_not','contacted','criteria_collected','engaged','verified_active','not_investor','inactive'].map(s=>`<option value="${s}">${s.replace(/_/g,' ')}</option>`).join('')}
           </select>
         </div>
       </div>

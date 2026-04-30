@@ -31,6 +31,8 @@ function badge(text, color) {
 function buyerStatusColor(s) {
     if (['verified_active', 'engaged'].includes(s)) return 'green';
     if (['contacted', 'criteria_collected'].includes(s)) return 'yellow';
+    if (s === 'new_high_priority') return 'green';
+    if (s === 'new_probably_not') return 'red';
     if (s === 'not_investor') return 'orange';
     if (s === 'inactive') return 'gray';
     return 'blue';
@@ -90,7 +92,7 @@ function getMatchingBuyers(property, buyers) {
     const matches = [];
 
     for (const b of buyers) {
-        if (['inactive', 'not_investor'].includes(b.status)) continue;
+        if (['inactive', 'not_investor', 'new_probably_not'].includes(b.status)) continue;
         // Skip buyers with incomplete criteria (e.g. unvetted imports)
         if (!b.zip_codes || !b.property_types || !b.condition_tolerance) continue;
 
@@ -115,7 +117,7 @@ function getMatchingBuyers(property, buyers) {
         matches.push(b);
     }
 
-    const statusOrder = { verified_active: 0, engaged: 1, criteria_collected: 2, contacted: 3, new: 4 };
+    const statusOrder = { verified_active: 0, engaged: 1, criteria_collected: 2, contacted: 3, new_high_priority: 4, new: 5 };
     matches.sort((a, b) => (statusOrder[a.status] || 5) - (statusOrder[b.status] || 5));
     return matches;
 }
